@@ -5,9 +5,13 @@ import (
 	"net/http"
 
 	"url-shortner/internal/handler"
+	"url-shortner/internal/service"
 )
 
 func main() {
+	service := service.NewURLService()
+	handler := handler.NewURLHandler(service)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /encode", handler.Encode)

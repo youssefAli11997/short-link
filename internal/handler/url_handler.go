@@ -2,23 +2,55 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"url-shortner/internal/service"
 )
 
-type Handler struct {
-	Encode func(http.ResponseWriter, *http.Request)
-	Decode func(http.ResponseWriter, *http.Request)
+type URLHandler struct {
+	service service.URLService
 }
 
-func Encode(w http.ResponseWriter, r *http.Request) {
-	response := map[string]string{
-		"short_url": "http://localhost:8080/abc",
+func NewURLHandler(service service.URLService) *URLHandler {
+	return &URLHandler{
+		service: service,
+	}
+}
+
+func (h *URLHandler) Encode(w http.ResponseWriter, r *http.Request) {
+	var req EncodeRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %e", err))
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	shortURL, err := h.service.Encode(r.Context(), req.URL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, EncodeResponse{
+		ShortURL: shortURL,
+	})
 }
 
-func Decode(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) Decode(w http.ResponseWriter, r *http.Request) {
+	var req DecodeRequest
 
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %e", err))
+		return
+	}
+
+	url, err := h.service.Decode(r.Context(), req.ShortURL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, DecodeResponse{
+		URL: url,
+	})
 }
