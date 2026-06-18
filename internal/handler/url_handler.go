@@ -2,9 +2,10 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"url-shortner/internal/service"
+
+	"url-shortener/internal/model"
+	"url-shortener/internal/service"
 )
 
 type URLHandler struct {
@@ -21,13 +22,13 @@ func (h *URLHandler) Encode(w http.ResponseWriter, r *http.Request) {
 	var req EncodeRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %e", err))
+		writeError(w, http.StatusBadRequest, model.ErrInvalidRequestBody)
 		return
 	}
 
 	shortURL, err := h.service.Encode(r.Context(), req.URL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -40,13 +41,13 @@ func (h *URLHandler) Decode(w http.ResponseWriter, r *http.Request) {
 	var req DecodeRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %e", err))
+		writeError(w, http.StatusBadRequest, model.ErrInvalidRequestBody)
 		return
 	}
 
 	url, err := h.service.Decode(r.Context(), req.ShortURL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 

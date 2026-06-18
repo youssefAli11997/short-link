@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"time"
 )
 
@@ -11,8 +10,3 @@ type URL struct {
 	ShortCode   string
 	CreatedAt   time.Time
 }
-
-var (
-	ErrURLNotFound = errors.New("url not found")
-	ErrInvalidURL  = errors.New("invalid url")
-)

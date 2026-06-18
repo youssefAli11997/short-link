@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"url-shortner/internal/service"
+	"url-shortener/internal/service"
 )
 
 func setupHandler(service service.URLService) *URLHandler {
