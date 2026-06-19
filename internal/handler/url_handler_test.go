@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"url-shortener/internal/model"
 	"url-shortener/internal/service"
 )
 
@@ -29,7 +30,7 @@ func TestURLHandler_Encode(t *testing.T) {
 	}{
 		{
 			name: "success",
-			requestBody: EncodeRequest{
+			requestBody: model.EncodeRequest{
 				URL: "https://google.com",
 			},
 			mockResponse:   "http://short/abc",
@@ -46,7 +47,7 @@ func TestURLHandler_Encode(t *testing.T) {
 		},
 		{
 			name: "failed to encode",
-			requestBody: EncodeRequest{
+			requestBody: model.EncodeRequest{
 				URL: "https://google.com",
 			},
 			mockResponse:   "",
@@ -86,7 +87,7 @@ func TestURLHandler_Encode(t *testing.T) {
 			}
 
 			if tt.expectedStatus == http.StatusOK {
-				var resp EncodeResponse
+				var resp model.EncodeResponse
 				_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 				if resp.ShortURL != tt.expectShortURL {
@@ -108,7 +109,7 @@ func TestURLHandler_Decode(t *testing.T) {
 	}{
 		{
 			name: "success",
-			requestBody: DecodeRequest{
+			requestBody: model.DecodeRequest{
 				ShortURL: "http://short/abc",
 			},
 			mockResponse:   "https://google.com",
@@ -126,7 +127,7 @@ func TestURLHandler_Decode(t *testing.T) {
 
 		{
 			name: "failed to decode",
-			requestBody: EncodeRequest{
+			requestBody: model.EncodeRequest{
 				URL: "http://short/abc",
 			},
 			mockResponse:   "",
@@ -166,7 +167,7 @@ func TestURLHandler_Decode(t *testing.T) {
 			}
 
 			if tt.expectedStatus == http.StatusOK {
-				var resp DecodeResponse
+				var resp model.DecodeResponse
 				_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 				if resp.URL != tt.expectURL {

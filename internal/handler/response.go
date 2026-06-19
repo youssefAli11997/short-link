@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+
+	"url-shortener/internal/model"
 )
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -19,7 +21,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, ErrorResponse{
+	writeJSON(w, status, model.ErrorResponse{
 		Error: err.Error(),
 	})
 }

@@ -19,7 +19,7 @@ func NewURLHandler(service service.URLService) *URLHandler {
 }
 
 func (h *URLHandler) Encode(w http.ResponseWriter, r *http.Request) {
-	var req EncodeRequest
+	var req model.EncodeRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, model.ErrInvalidRequestBody)
@@ -32,13 +32,13 @@ func (h *URLHandler) Encode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, EncodeResponse{
+	writeJSON(w, http.StatusOK, model.EncodeResponse{
 		ShortURL: shortURL,
 	})
 }
 
 func (h *URLHandler) Decode(w http.ResponseWriter, r *http.Request) {
-	var req DecodeRequest
+	var req model.DecodeRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, model.ErrInvalidRequestBody)
@@ -51,7 +51,7 @@ func (h *URLHandler) Decode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, DecodeResponse{
+	writeJSON(w, http.StatusOK, model.DecodeResponse{
 		URL: url,
 	})
 }

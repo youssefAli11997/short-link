@@ -71,3 +71,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 	defer a.db.Close()
 	return a.server.Shutdown(ctx)
 }
+
+func (a *App) Handler() http.Handler {
+	return a.server.Handler
+}

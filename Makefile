@@ -8,3 +8,6 @@ docker-down:
 
 test:
 	go test ./...
+
+test-integration:
+	go test -tags=integration ./...
