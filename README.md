@@ -1,6 +1,6 @@
 # URL Shortener
 
-a small URL shortening service written in Go. It exposes two JSON endpoints:
+A small URL shortening service written in Go. It exposes two JSON endpoints:
 
 - `POST /encode` stores an original URL and returns a shortened URL.
 - `POST /decode` accepts a shortened URL and returns the original URL.
@@ -14,6 +14,22 @@ The service persists URLs in PostgreSQL, so previously encoded URLs can still be
 - `pgx` for database access
 - Docker Compose for local app, database, and migration orchestration
 - Testcontainers for end-to-end integration testing
+
+## Architecture
+
+The application follows a layered design:
+
+```
+HTTP Handler
+     ↓
+Service Layer
+     ↓
+Repository Layer
+     ↓
+PostgreSQL
+```
+
+Responsibilities are separated to keep the codebase maintainable and easily testable. Dependencies are injected, allowing unit tests to replace repositories and services with mocks.
 
 ## API
 
@@ -71,6 +87,22 @@ Error responses are returned in JSON:
 }
 ```
 
+### Health Check
+
+Request:
+
+```http
+GET /healthz
+```
+
+Response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
 ## How It Works
 
 1. `/encode` validates the submitted URL.
@@ -78,7 +110,18 @@ Error responses are returned in JSON:
 3. The database row ID is encoded as a Base62 short code.
 4. `/decode` extracts the short code, decodes it back to the database ID, and returns the stored original URL.
 
-This design is deterministic and idempotent: encoding the same URL more than once returns the same short URL as long as the database record exists.
+This design is deterministic and idempotent: encoding the same URL multiple times returns the same short URL and does not create duplicate records.
+
+## Testing Strategy
+
+The project contains multiple layers of testing:
+
+- Unit tests for Base62 encoding and decoding.
+- Unit tests for the service layer using mocked repositories.
+- Unit tests for HTTP handlers using mocked services.
+- End-to-end integration tests using Testcontainers and a real PostgreSQL instance.
+
+Integration tests exercise the entire request flow and verify that data persists correctly in PostgreSQL.
 
 ## Running the Project
 
@@ -94,13 +137,13 @@ The API will be available at `http://localhost:8080`.
 
 ## Tests
 
-Run all unit tests:
+Run unit tests:
 
 ```sh
 go test ./...
 ```
 
-Run the integration test:
+Run integration tests:
 
 ```sh
 go test -tags=integration ./integration -count=1
@@ -111,9 +154,9 @@ The test suite includes:
 - Base62 encoder/decoder tests
 - URL service unit tests
 - HTTP handler unit tests for `/encode` and `/decode`
-- Integration test that starts PostgreSQL with Testcontainers and round-trips `/encode` then `/decode`
+- Integration tests that start PostgreSQL with Testcontainers and round-trips `/encode` then `/decode`
 
-The integration test requires Docker to be running.
+The integration tests require Docker to be running.
 
 ## Configuration
 
@@ -172,7 +215,7 @@ An attacker could enumerate short URLs and potentially discover or access URLs t
 
 Possible mitigations include:
 
-- Generating random short codes from a sufficiently large keyspace (e.g. UUIDs) and relying on a database unique constraint to enforce uniqueness.
+- Generating random short codes from a sufficiently large keyspace and enforcing uniqueness with a database constraint.
 - Introducing a distributed ID generator combined with an obfuscation layer instead of exposing sequential IDs directly.
 - Implementing authentication and authorization for private links.
 - Applying rate limiting to reduce large-scale enumeration attempts.
@@ -180,22 +223,15 @@ Possible mitigations include:
 
 The current implementation prioritizes simplicity and deterministic behavior, but a production-grade system containing sensitive or private URLs should avoid exposing sequential identifiers directly.
 
-### 6. Collision handling
+### 6. URL abuse and phishing
 
-Already handled via:
-
-- PostgreSQL auto-increment ID
-- Base62 encoding ensures uniqueness
-
-### 7. URL abuse and phishing
-
-a public shortener can hide malicious destinations.
+A public shortener can hide malicious destinations.
 
 Mitigation:
 
 - Production use should add abuse reporting, blocklists, malware scanning, and administrative takedown tools.
 
-### 8. Transport security
+### 7. Transport security
 
 local examples use HTTP.
 
@@ -203,11 +239,11 @@ Mitigation:
 
 - Production should run behind HTTPS.
 
-### 9. Error exposure
+### 8. Error exposure
 
 Implementation avoids exposing internal database or infrastructure details. (already implemented)
 
-### 10. Server-side request forgery (SSRF)
+### 9. Server-side request forgery (SSRF)
 
 The current implementation only stores URLs and does not fetch or inspect them, which eliminates SSRF risk in the current design. However, if future features such as link previews, metadata extraction, or screenshots are introduced, care must be taken to prevent requests to private networks, localhost, cloud metadata endpoints, and internal hostnames.
 
@@ -224,7 +260,6 @@ This approach has several advantages:
 - No collision handling is required.
 - Database lookups are efficient through indexed primary keys.
 - The application itself is stateless and can be horizontally scaled.
-- Base62 encoding and decoding are computationally inexpensive and scale well in practice.
 
 ### Horizontal Scaling
 
@@ -264,8 +299,8 @@ At very large scale, PostgreSQL could become a bottleneck for write throughput.
 
 Possible approaches include:
 
-- Read replicas for scaling reads.
 - Database partitioning or sharding.
+- Decoupling ID generation from the database.
 - Using asynchronous processing for non-critical workloads such as abuse scanning, expiry, analytics, and cleanup.
 
 ### Collision Handling
