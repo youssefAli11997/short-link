@@ -18,18 +18,10 @@ import (
 	"url-shortener/internal/service"
 )
 
-const (
-	defaultBaseURL string = "http://localhost:8080"
-	defaultPort    string = "8080"
-)
-
 func main() {
 	ctx := context.Background()
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
+	_ = godotenv.Load()
 
 	dbURL := os.Getenv("DATABASE_URL")
 	baseURL := os.Getenv("BASE_URL")
@@ -40,11 +32,11 @@ func main() {
 	}
 
 	if baseURL == "" {
-		baseURL = defaultBaseURL
+		log.Fatal("BASE_URL is required")
 	}
 
 	if port == "" {
-		port = defaultPort
+		log.Fatal("PORT is required")
 	}
 
 	db, err := pgxpool.New(ctx, dbURL)
