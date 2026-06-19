@@ -28,7 +28,7 @@ func (h *URLHandler) Encode(w http.ResponseWriter, r *http.Request) {
 
 	shortURL, err := h.service.Encode(r.Context(), req.URL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusInternalServerError, model.ErrInternalServerError)
 		return
 	}
 
@@ -47,7 +47,7 @@ func (h *URLHandler) Decode(w http.ResponseWriter, r *http.Request) {
 
 	url, err := h.service.Decode(r.Context(), req.ShortURL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusInternalServerError, model.ErrInternalServerError)
 		return
 	}
 
