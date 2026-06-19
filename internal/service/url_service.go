@@ -34,27 +34,16 @@ func (s *urlService) Encode(ctx context.Context, originalURL string) (string, er
 		return "", model.ErrInvalidURL
 	}
 
-	// 2. check if exists (for idempotency)
-	existing, err := s.repository.FindByOriginalURL(ctx, originalURL)
-	if err == nil && existing != nil {
-		return s.constructShortUrl(existing.ShortCode), nil
-	}
-
-	// 3. create a row in the database and get the id
-	id, err := s.repository.Create(ctx, originalURL)
+	// 2. create a row in the database and get the id
+	url, err := s.repository.CreateOrGet(ctx, originalURL)
 	if err != nil {
 		return "", err
 	}
 
-	// 4. generate short code
-	shortCode := shortener.EncodeBase62(id)
+	// 3. generate short code
+	shortCode := shortener.EncodeBase62(url.ID)
 
-	// 5. persist code
-	if err := s.repository.UpdateShortCode(ctx, id, shortCode); err != nil {
-		return "", err
-	}
-
-	// 6. return short url
+	// 4. return short url
 	return s.constructShortUrl(shortCode), nil
 }
 
@@ -68,13 +57,19 @@ func (s *urlService) Decode(ctx context.Context, shortURL string) (string, error
 	// 2. extract short code from the url
 	shortCode := strings.TrimPrefix(parsedUrl.Path, "/")
 
-	// 3. look up in db
-	record, err := s.repository.FindByShortCode(ctx, shortCode)
+	// 3. decode short code to get id
+	id, err := shortener.DecodeBase62(shortCode)
+	if err != nil {
+		return "", model.ErrInvalidURL
+	}
+
+	// 4. look up in db
+	record, err := s.repository.FindByID(ctx, id)
 	if err != nil {
 		return "", model.ErrURLNotFound
 	}
 
-	// 4. return original url
+	// 5. return original url
 	return record.OriginalURL, nil
 }
 

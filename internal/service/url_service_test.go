@@ -4,26 +4,23 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"url-shortener/internal/model"
 	"url-shortener/internal/repository"
 )
-
-// TODO(ya): consider using testify/require for simpler test functions
-// here and in the other test files
 
 func TestURLService_Encode(t *testing.T) {
 	dbError := errors.New("db down")
 
 	tests := []struct {
-		name        string
-		originalURL string
-		findResult  *model.URL
-		findErr     error
-		createID    int64
-		createErr   error
-		updateErr   error
-		expectedURL string
-		expectedErr error
+		name         string
+		originalURL  string
+		createResult *model.URL
+		createErr    error
+		expectedURL  string
+		expectedErr  error
 	}{
 		{
 			name:        "invalid url",
@@ -31,34 +28,27 @@ func TestURLService_Encode(t *testing.T) {
 			expectedErr: model.ErrInvalidURL,
 		},
 		{
+			name:        "new url",
+			originalURL: "https://google.com",
+			createResult: &model.URL{
+				ID:          100,
+				OriginalURL: "https://google.com",
+			},
+			expectedURL: "http://localhost:8080/1C",
+		},
+		{
 			name:        "url already exists",
 			originalURL: "https://google.com",
-			findResult: &model.URL{
+			createResult: &model.URL{
 				ID:          10,
 				OriginalURL: "https://google.com",
-				ShortCode:   "a",
 			},
 			expectedURL: "http://localhost:8080/a",
 		},
 		{
-			name:        "new url",
+			name:        "repository fails",
 			originalURL: "https://google.com",
-			findErr:     model.ErrURLNotFound,
-			createID:    100,
-			expectedURL: "http://localhost:8080/1C",
-		},
-		{
-			name:        "create fails",
-			originalURL: "https://google.com",
-			findErr:     model.ErrURLNotFound,
 			createErr:   dbError,
-			expectedErr: dbError,
-		},
-		{
-			name:        "update fails",
-			originalURL: "https://google.com",
-			updateErr:   dbError,
-			createID:    100,
 			expectedErr: dbError,
 		},
 	}
@@ -67,21 +57,11 @@ func TestURLService_Encode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			mockRepo := &repository.MockURLRepository{
-				FindByOriginalURLFunc: func(ctx context.Context, url string) (*model.URL, error) {
-					return tt.findResult, tt.findErr
-				},
-				CreateFunc: func(ctx context.Context, originalURL string) (int64, error) {
-					return tt.createID, tt.createErr
-				},
-				UpdateShortCodeFunc: func(ctx context.Context, id int64, code string) error {
-					if id != 100 {
-						t.Errorf("expected id 100, got %d", id)
-					}
+				CreateOrGetFunc: func(ctx context.Context, originalURL string) (*model.URL, error) {
 
-					if code != "1C" {
-						t.Errorf("expected code 1C, got %s", code)
-					}
-					return tt.updateErr
+					require.Equal(t, tt.originalURL, originalURL)
+
+					return tt.createResult, tt.createErr
 				},
 			}
 
@@ -89,25 +69,22 @@ func TestURLService_Encode(t *testing.T) {
 
 			got, err := service.Encode(context.Background(), tt.originalURL)
 
-			if !errors.Is(err, tt.expectedErr) {
-				t.Fatalf("expected error %v got %v", tt.expectedErr, err)
-			}
-
-			if got != tt.expectedURL {
-				t.Fatalf("expected %s got %s", tt.expectedURL, got)
-			}
+			require.ErrorIs(t, err, tt.expectedErr)
+			require.Equal(t, tt.expectedURL, got)
 		})
 	}
 }
 
 func TestURLService_Decode(t *testing.T) {
 	tests := []struct {
-		name        string
-		shortURL    string
-		findResult  *model.URL
-		findErr     error
-		expectedURL string
-		expectedErr error
+		name               string
+		shortURL           string
+		findResult         *model.URL
+		findErr            error
+		expectedID         int64
+		expectedURL        string
+		expectedErr        error
+		shouldCallFindByID bool
 	}{
 		{
 			name:        "invalid short url",
@@ -115,26 +92,53 @@ func TestURLService_Decode(t *testing.T) {
 			expectedErr: model.ErrInvalidURL,
 		},
 		{
-			name:        "not found",
-			shortURL:    "http://localhost:8080/a",
-			findErr:     model.ErrURLNotFound,
-			expectedErr: model.ErrURLNotFound,
+			name:        "invalid base62 code",
+			shortURL:    "http://localhost:8080/$$$",
+			expectedErr: model.ErrInvalidURL,
 		},
 		{
-			name:     "success",
-			shortURL: "http://localhost:8080/a",
+			name:               "not found",
+			shortURL:           "http://localhost:8080/a",
+			expectedID:         10,
+			findErr:            model.ErrURLNotFound,
+			expectedErr:        model.ErrURLNotFound,
+			shouldCallFindByID: true,
+		},
+		{
+			name:       "success single digit code",
+			shortURL:   "http://localhost:8080/a",
+			expectedID: 10,
 			findResult: &model.URL{
+				ID:          10,
 				OriginalURL: "https://google.com",
 			},
-			expectedURL: "https://google.com",
+			expectedURL:        "https://google.com",
+			shouldCallFindByID: true,
+		},
+		{
+			name:       "success multi digit code",
+			shortURL:   "http://localhost:8080/1C",
+			expectedID: 100,
+			findResult: &model.URL{
+				ID:          100,
+				OriginalURL: "https://github.com",
+			},
+			expectedURL:        "https://github.com",
+			shouldCallFindByID: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
+			var findByIDCalled bool
+
 			mockRepo := &repository.MockURLRepository{
-				FindByShortCodeFunc: func(ctx context.Context, code string) (*model.URL, error) {
+				FindByIDFunc: func(ctx context.Context, id int64) (*model.URL, error) {
+					findByIDCalled = true
+
+					require.Equal(t, tt.expectedID, id)
+
 					return tt.findResult, tt.findErr
 				},
 			}
@@ -143,13 +147,9 @@ func TestURLService_Decode(t *testing.T) {
 
 			got, err := service.Decode(context.Background(), tt.shortURL)
 
-			if !errors.Is(err, tt.expectedErr) {
-				t.Fatalf("expected %v got %v", tt.expectedErr, err)
-			}
-
-			if got != tt.expectedURL {
-				t.Fatalf("expected %s got %s", tt.expectedURL, got)
-			}
+			require.ErrorIs(t, err, tt.expectedErr)
+			require.Equal(t, tt.expectedURL, got)
+			require.Equal(t, tt.shouldCallFindByID, findByIDCalled)
 		})
 	}
 }

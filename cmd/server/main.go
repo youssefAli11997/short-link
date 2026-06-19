@@ -1,15 +1,58 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"url-shortner/internal/handler"
-	"url-shortner/internal/service"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"url-shortener/internal/handler"
+	"url-shortener/internal/repository"
+	"url-shortener/internal/service"
+)
+
+const (
+	defaultBaseURL string = "http://localhost:8080"
+	defaultPort    string = "8080"
 )
 
 func main() {
-	service := service.NewURLService()
+	ctx := context.Background()
+
+	dbURL := os.Getenv("DATABASE_URL")
+	baseURL := os.Getenv("BASE_URL")
+	port := os.Getenv("PORT")
+
+	if dbURL == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
+
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+
+	if port == "" {
+		port = defaultPort
+	}
+
+	db, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	repository := repository.NewPostgresURLRepository(db)
+	service := service.NewURLService(repository, baseURL)
 	handler := handler.NewURLHandler(service)
 
 	mux := http.NewServeMux()
@@ -18,9 +61,31 @@ func main() {
 	mux.HandleFunc("POST /decode", handler.Decode)
 
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%v", port),
 		Handler: mux,
 	}
 
-	log.Fatal(server.ListenAndServe())
+	go func() {
+		log.Println("server listening on :8080")
+
+		if err := server.ListenAndServe(); err != nil &&
+			err != http.ErrServerClosed {
+
+			log.Fatal(err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	<-stop
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		5*time.Second,
+	)
+	defer cancel()
+
+	server.Shutdown(ctx)
 }

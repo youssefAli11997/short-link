@@ -1,0 +1,5 @@
+CREATE TABLE urls (
+    id BIGSERIAL PRIMARY KEY,
+    original_url TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);

@@ -16,6 +16,8 @@ func setupHandler(service service.URLService) *URLHandler {
 	return NewURLHandler(service)
 }
 
+// TODO(ya): consider using testify/require for simpler test functions
+
 func TestURLHandler_Encode(t *testing.T) {
 	tests := []struct {
 		name           string

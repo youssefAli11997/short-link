@@ -7,24 +7,14 @@ import (
 )
 
 type MockURLRepository struct {
-	FindByOriginalURLFunc func(ctx context.Context, url string) (*model.URL, error)
-	FindByShortCodeFunc   func(ctx context.Context, code string) (*model.URL, error)
-	CreateFunc            func(ctx context.Context, originalURL string) (int64, error)
-	UpdateShortCodeFunc   func(ctx context.Context, id int64, code string) error
+	CreateOrGetFunc func(ctx context.Context, originalURL string) (*model.URL, error)
+	FindByIDFunc    func(ctx context.Context, id int64) (*model.URL, error)
 }
 
-func (m *MockURLRepository) FindByOriginalURL(ctx context.Context, url string) (*model.URL, error) {
-	return m.FindByOriginalURLFunc(ctx, url)
+func (m *MockURLRepository) CreateOrGet(ctx context.Context, originalURL string) (*model.URL, error) {
+	return m.CreateOrGetFunc(ctx, originalURL)
 }
 
-func (m *MockURLRepository) FindByShortCode(ctx context.Context, code string) (*model.URL, error) {
-	return m.FindByShortCodeFunc(ctx, code)
-}
-
-func (m *MockURLRepository) Create(ctx context.Context, originalURL string) (int64, error) {
-	return m.CreateFunc(ctx, originalURL)
-}
-
-func (m *MockURLRepository) UpdateShortCode(ctx context.Context, id int64, code string) error {
-	return m.UpdateShortCodeFunc(ctx, id, code)
+func (m *MockURLRepository) FindByID(ctx context.Context, id int64) (*model.URL, error) {
+	return m.FindByIDFunc(ctx, id)
 }

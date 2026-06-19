@@ -1,8 +1,24 @@
 package shortener
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	"url-shortener/internal/model"
+)
 
 const charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// populated once when the server runs
+var decodeMap = func() map[rune]int64 {
+	m := make(map[rune]int64)
+
+	for i, c := range charset {
+		m[c] = int64(i)
+	}
+
+	return m
+}()
 
 func EncodeBase62(num int64) string {
 	if num == 0 {
@@ -27,5 +43,22 @@ func EncodeBase62(num int64) string {
 	return string(runes)
 }
 
-// TODO(ya): consider adding DecodeBase62 and testing the round-trip
-// Note: DecodeBase62 is not needed so far, so this TODO is not a priority
+func DecodeBase62(s string) (int64, error) {
+	if s == "" {
+		return 0, model.ErrEmptyBase62String
+	}
+
+	var result int64
+	base := int64(len(charset))
+
+	for _, c := range s {
+		value, ok := decodeMap[c]
+		if !ok {
+			return 0, fmt.Errorf("invalid base62 character: %c", c)
+		}
+
+		result = result*base + value
+	}
+
+	return result, nil
+}
