@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strings"
+
 	"url-shortener/internal/model"
 	"url-shortener/internal/repository"
 	"url-shortener/internal/shortener"
@@ -26,15 +27,13 @@ func NewURLService(repository repository.URLRepository, baseURL string) URLServi
 	}
 }
 
-// TODO(ya): put creating and updating the db record in one database transaction
-// to avoid race conditions
 func (s *urlService) Encode(ctx context.Context, originalURL string) (string, error) {
 	// 1. validate the url
 	if _, err := url.ParseRequestURI(originalURL); err != nil {
 		return "", model.ErrInvalidURL
 	}
 
-	// 2. create a row in the database and get the id
+	// 2. create a row in the database (if doen't exist) and get the id
 	url, err := s.repository.CreateOrGet(ctx, originalURL)
 	if err != nil {
 		return "", err
